@@ -1,5 +1,6 @@
 import { SafeAreaView, Text, View, ScrollView } from "react-native";
 import { BottomBar } from "../component/bottomBar";
+import { shadow } from "../styles/shadow";
 
 export default function SalesScreen() {
   return (
@@ -59,11 +60,7 @@ export default function SalesScreen() {
                 borderRadius: 15,
                 padding: 20,
                 width: "47%",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
+                ...shadow.medium
               }}
             >
               <Text style={{ color: "#666", fontSize: 14 }}>เดือนนี้</Text>
@@ -81,11 +78,7 @@ export default function SalesScreen() {
                 borderRadius: 15,
                 padding: 20,
                 width: "47%",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
+                ...shadow.medium
               }}
             >
               <Text style={{ color: "#666", fontSize: 14 }}>ออเดอร์/เดือน</Text>
@@ -114,11 +107,7 @@ export default function SalesScreen() {
                 borderRadius: 15,
                 padding: 15,
                 marginBottom: 12,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 4,
-                elevation: 3,
+                ...shadow.medium
               }}
             >
               <View

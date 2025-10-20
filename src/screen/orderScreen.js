@@ -7,14 +7,14 @@ import {
   View,
 } from "react-native";
 import { BottomBar } from "../component/bottomBar";
+import { shadow } from "../styles/shadow";
 
 export default function OrderScreen() {
-  const uri = require("../../assets/Food/boxkaitod.jpg");
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ flex: 2, backgroundColor: "#FA4A0C" }}>
         <Text style={[style.topicText, { fontSize: 25, marginTop: 25 }]}>
-          ชื่อร้าน
+          KFC
         </Text>
         <View>
           <Text style={[style.topicText, { fontSize: 15, marginTop: 15 }]}>
@@ -25,42 +25,65 @@ export default function OrderScreen() {
       <View style={{ flex: 10, alignItems: "center" }}>
         <ScrollView>
           <View>
-            <View style={[style.orderCard, style.shadowCard]}>
+            <View style={[style.orderCard, shadow.strong]}>
               <View style={{ flex: 3, flexDirection: "row" }}>
                 <View>
                   <Text
                     style={{
                       fontSize: 25,
                       marginTop: 15,
-                      paddingHorizontal: 15,
+                      marginLeft:25,
+                      
                     }}
                   >
-                    รหัส
+                    ORD-001
                   </Text>
                   <Text
                     style={{
-                      fontSize: 20,
+                      fontSize: 15,
                       marginTop: 10,
-                      paddingHorizontal: 15,
+                      marginLeft: 25,
                     }}
                   >
-                    ชื่อ user
+                    สมชาย ใจดี
                   </Text>
                 </View>
-                <Text style={{ fontSize: 20, marginTop: 60, marginLeft: 210 }}>
+                <Text style={{ fontSize: 20, marginTop: 60, marginLeft: 170 }}>
                   12:00
                 </Text>
               </View>
-              <View style={{ flex: 4 }}>
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderRadius: 25,
-                    width: 350,
-                    height: 125,
-                    alignSelf: "center",
-                  }}
-                ></View>
+              <View style={{ flex: 4 , marginBottom:10}}>
+                <View style={style.detailBox}>
+                  {/* แถวรายการ 1 */}
+                  <View style={style.detailRow}>
+                    <Text style={style.detailText}>2x ข้าวมันไก่ทอด</Text>
+                    <Text style={style.detailPrice}>฿90</Text>
+                  </View>
+
+                  {/* แถวรายการ 2 */}
+                  <View style={style.detailRow}>
+                    <Text style={style.detailText}>1x น้ำซุปไก่</Text>
+                    <Text style={style.detailPrice}>฿15</Text>
+                  </View>
+
+                  {/* เส้นคั่น */}
+                  <View style={style.separator} />
+
+                  {/* รวม */}
+                  <View style={style.detailRow}>
+                    <Text style={[style.detailText, { fontWeight: "600" }]}>
+                      รวม
+                    </Text>
+                    <Text
+                      style={[
+                        style.detailPrice,
+                        { color: "#FA4A0C", fontWeight: "700" },
+                      ]}
+                    >
+                      ฿105
+                    </Text>
+                  </View>
+                </View>
               </View>
               <View style={{ flex: 2, flexDirection: "row", marginTop: 10 }}>
                 <TouchableOpacity
@@ -84,7 +107,7 @@ export default function OrderScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{
-                    backgroundColor: "green",
+                    backgroundColor: "#FA4A0C",
                     borderRadius: 20,
                     width: 155,
                     height: 45,
@@ -122,13 +145,33 @@ const style = StyleSheet.create({
     width: 375,
     height: 300,
     marginTop: 20,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
   },
-  shadowCard: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 6,
+  detailBox: {
+    backgroundColor: "#F3F4F6", 
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    width: 350,
+    alignSelf: "center",
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  detailText: {
+    fontSize: 14.5,
+    color: "#374151",
+  },
+  detailPrice: {
+    fontSize: 14.5,
+    color: "#111827",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+    marginVertical: 6,
   },
 });
