@@ -8,6 +8,7 @@ import {
   Image,
 } from "react-native";
 import { BottomBar } from "../component/bottomBar";
+import { shadow } from "../styles/shadow";
 
 import { useState } from "react";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
@@ -49,17 +50,14 @@ export default function MenuScreen() {
     Object.fromEntries(menuList.map((item) => [item.id, false]))
   );
 
-  // ฟังก์ชันสลับสถานะของแต่ละอัน
   const toggleSwitch = (id) => {
     setSwitchStates((prev) => ({
-      ...prev,
-      [id]: !prev[id],
+      ...prev, [id]: !prev[id],
     }));
   };
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      {/* Header */}
       <View
         style={{ flex: 2, flexDirection: "row", backgroundColor: "#FA4A0C" }}
       >
@@ -91,7 +89,6 @@ export default function MenuScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
       <View style={{ flex: 10 }}>
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={{ marginTop: 25 }}>
@@ -108,14 +105,9 @@ export default function MenuScreen() {
                   alignSelf: "center",
                   marginBottom: 15,
                   paddingHorizontal: 15,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 4,
-                  elevation: 5,
+                  ...shadow.medium
                 }}
               >
-                {/* รูปภาพเมนู */}
                 <Image
                   source={item.image}
                   style={{
@@ -158,7 +150,6 @@ export default function MenuScreen() {
                   </Text>
                 </View>
 
-                {/* Switch + icons */}
                 <View style={{ alignItems: "center" }}>
                   <Switch
                     style={{ marginRight: 5, transform: [{ scale: 0.9 }] }}
@@ -186,7 +177,6 @@ export default function MenuScreen() {
         </ScrollView>
       </View>
 
-      {/* Footer */}
       <View style={{ flex: 1}}>
         <BottomBar/>
       </View>
