@@ -8,8 +8,8 @@ import {
   StyleSheet,
   Alert
 } from "react-native";
-import { BottomBar } from "../component/bottomBar";
-import { shadow } from "../styles/shadow";
+import { BottomBar } from "../../../src/component/bottomBar";
+import { shadow } from "../../../src/styles/shadow";
 
 import { Ionicons } from "@expo/vector-icons";
 
@@ -30,7 +30,7 @@ export default function ProfileStoreScreen() {
   const [openTime, setOpenTime] = useState("");
   const [closeTime, setCloseTime] = useState("");
   const [image, setImage] = useState(
-    require("../../assets/Logo/kfc.jpg")
+    require("../../../assets/Logo/kfc.jpg")
   );
 
   const pickImage = async () => {
