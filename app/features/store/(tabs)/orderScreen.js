@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -7,6 +13,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -47,53 +54,206 @@ const capitalize = (value) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-const OrderCard = ({ order, onAccept, onDecline, isProcessing }) => {
+const objectToArray = (obj) => {
+  if (!obj || typeof obj !== "object") return [];
+  return Object.entries(obj).map(([key, value]) => ({
+    menuId: key,
+    quantity: value,
+  }));
+};
+
+const OrderCard = ({
+  order,
+  onAccept,
+  onDecline,
+  isProcessing,
+  storeName,
+  storeMenu,
+}) => {
   const [expanded, setExpanded] = useState(false);
-  const status = order.status?.toLowerCase() || 'pending';
+  const status = order.status?.toLowerCase() || "pending";
+  const items = Array.isArray(order.items)
+    ? order.items
+    : objectToArray(order.items);
+
+  const fallbackItemImage = require("../../../../assets/Food/boxkaitod.jpg");
+  const menuCatalog = Array.isArray(storeMenu) ? storeMenu : [];
+  const displayStoreName =
+    storeName ||
+    order.shopName ||
+    order.storeName ||
+    order.store ||
+    order.shopId ||
+    "N/A";
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity onPress={() => setExpanded(!expanded)} style={styles.cardHeader}>
+      <TouchableOpacity
+        onPress={() => setExpanded(!expanded)}
+        style={styles.cardHeader}
+      >
         <View style={{ flex: 1 }}>
-          <Text style={styles.orderId}>Order #{order.queueNumber || order.id}</Text>
-          <Text style={styles.customerName}>{order.customerName || 'N/A'}</Text>
+          <Text style={styles.orderId}>
+            Order #{order.orderNumber || order.id}
+          </Text>
+          <Text style={styles.customerName}>{displayStoreName}</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[status] + '20' }]}>
-          <Text style={[styles.statusText, { color: STATUS_COLORS[status] }]}>{capitalize(order.status)}</Text>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: STATUS_COLORS[status] + "20" },
+          ]}
+        >
+          <Text style={[styles.statusText, { color: STATUS_COLORS[status] }]}>
+            {capitalize(order.status)}
+          </Text>
         </View>
       </TouchableOpacity>
 
       {expanded && (
         <View style={styles.cardBody}>
-          {order.items.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <Text style={styles.itemQuantity}>{item.quantity}x</Text>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemPrice}>THB {formatCurrency(item.price * item.quantity)}</Text>
-            </View>
-          ))}
+          {items.length === 0 ? (
+            <Text style={styles.emptyItemsText}>
+              No menu items recorded for this order
+            </Text>
+          ) : (
+            items.map((item, index) => {
+              const parsedQuantity = Number(item.quantity);
+              const itemQuantity =
+                Number.isFinite(parsedQuantity) && parsedQuantity > 0
+                  ? parsedQuantity
+                  : 1;
+              const normalizeValue = (value) =>
+                value === undefined || value === null
+                  ? null
+                  : String(value).trim().toLowerCase();
+
+              const orderIds = [
+                item.menuId,
+                item.menuItemId,
+                item.itemId,
+                item.id,
+                item.productId,
+                item.sku,
+              ]
+                .map(normalizeValue)
+                .filter(Boolean);
+
+              const orderNames = [
+                item.name,
+                item.title,
+                item.menuName,
+                item.label,
+              ]
+                .map(normalizeValue)
+                .filter(Boolean);
+
+              const findMenuMatch = () => {
+                for (const menuItem of menuCatalog) {
+                  const menuIds = [
+                    menuItem.id,
+                    menuItem.menuId,
+                    menuItem.itemId,
+                    menuItem.productId,
+                    menuItem.sku,
+                    menuItem.key,
+                  ]
+                    .map(normalizeValue)
+                    .filter(Boolean);
+
+                  if (menuIds.some((id) => orderIds.includes(id))) {
+                    return menuItem;
+                  }
+
+                  const menuNames = [
+                    menuItem.name,
+                    menuItem.title,
+                    menuItem.menuName,
+                    menuItem.label,
+                  ]
+                    .map(normalizeValue)
+                    .filter(Boolean);
+
+                  if (menuNames.some((name) => orderNames.includes(name))) {
+                    return menuItem;
+                  }
+                }
+                return null;
+              };
+
+              const matchedMenu = findMenuMatch();
+              const parsedItemPrice = Number(item.price);
+              const parsedMenuPrice = Number(matchedMenu?.price);
+              const unitPrice = Number.isFinite(parsedItemPrice)
+                ? parsedItemPrice
+                : Number.isFinite(parsedMenuPrice)
+                ? parsedMenuPrice
+                : 0;
+              const matchedImage =
+                matchedMenu?.imageUrl ||
+                matchedMenu?.uri;
+              
+              const itemImage =
+                item.imageUrl || item.image || item.photoUrl || item.photo;
+
+              const imageSource =
+                matchedImage || itemImage
+                  ? { uri: matchedImage || itemImage }
+                  : fallbackItemImage;
+
+              return (
+                <View key={index} style={styles.itemRow}>
+                  <Image source={imageSource} style={styles.itemImage} />
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.itemName}>
+                      {matchedMenu?.name ||
+                        matchedMenu?.title ||
+                        item.name ||
+                        "Menu item"}
+                    </Text>
+                    <Text style={styles.itemMeta}>
+                      {itemQuantity}x · THB {formatCurrency(unitPrice)}
+                    </Text>
+                  </View>
+                  <Text style={styles.itemPrice}>
+                    THB {formatCurrency(unitPrice * itemQuantity)}
+                  </Text>
+                </View>
+              );
+            })
+          )}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>THB {formatCurrency(order.total)}</Text>
+            <Text style={styles.totalValue}>
+              THB {formatCurrency(order.total)}
+            </Text>
           </View>
         </View>
       )}
 
       {status === "pending" && (
         <View style={styles.actionRow}>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.declineButton]} 
-            onPress={onDecline} 
+          <TouchableOpacity
+            style={[styles.actionButton, styles.declineButton]}
+            onPress={onDecline}
             disabled={isProcessing}
           >
-            {isProcessing ? <ActivityIndicator color="#EF4444"/> : <Text style={styles.declineButtonText}>Decline</Text>}
+            {isProcessing ? (
+              <ActivityIndicator color="#EF4444" />
+            ) : (
+              <Text style={styles.declineButtonText}>Decline</Text>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.acceptButton]} 
-            onPress={onAccept} 
+          <TouchableOpacity
+            style={[styles.actionButton, styles.acceptButton]}
+            onPress={onAccept}
             disabled={isProcessing}
           >
-            {isProcessing ? <ActivityIndicator color="#FFFFFF"/> : <Text style={styles.acceptButtonText}>Accept</Text>}
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.acceptButtonText}>Accept</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -113,25 +273,32 @@ export default function OrderScreen() {
       return;
     }
 
-    const q = query(collection(db, "orders"), where("storeId", "==", storeId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      setOrders(ordersData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching orders: ", error);
-      setLoading(false);
-    });
+    const q = query(collection(db, "orders"), where("shopId", "==", storeId));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const ordersData = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .sort(
+            (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+          );
+        setOrders(ordersData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching orders: ", error);
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, [storeId]);
 
   const handleDecision = async (orderId, decision) => {
-    setProcessingOrders(prev => ({ ...prev, [orderId]: true }));
+    setProcessingOrders((prev) => ({ ...prev, [orderId]: true }));
     try {
       const orderRef = doc(db, "orders", orderId);
-      const newStatus = decision === 'accept' ? 'preparing' : 'cancelled';
+      const newStatus = decision === "accept" ? "preparing" : "cancelled";
       await updateDoc(orderRef, {
         status: newStatus,
         statusUpdatedAt: serverTimestamp(),
@@ -139,7 +306,7 @@ export default function OrderScreen() {
     } catch (error) {
       Alert.alert("Error", "Failed to update order status.");
     } finally {
-      setProcessingOrders(prev => ({ ...prev, [orderId]: false }));
+      setProcessingOrders((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -150,7 +317,9 @@ export default function OrderScreen() {
           <Text style={styles.headerTitle}>Incoming Orders</Text>
           <Text style={styles.headerSubtitle}>Loading...</Text>
         </View>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
           <ActivityIndicator size="large" color="#FA4A0C" />
         </View>
       </SafeAreaView>
@@ -158,7 +327,7 @@ export default function OrderScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} >
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Incoming Orders</Text>
         <Text style={styles.headerSubtitle}>{orders.length} active orders</Text>
@@ -166,11 +335,15 @@ export default function OrderScreen() {
       <FlatList
         data={orders}
         renderItem={({ item }) => (
-          <OrderCard 
-            order={item} 
-            onAccept={() => handleDecision(item.id, 'accept')}
-            onDecline={() => handleDecision(item.id, 'decline')}
+          <OrderCard
+            order={item}
+            onAccept={() => handleDecision(item.id, "accept")}
+            onDecline={() => handleDecision(item.id, "decline")}
             isProcessing={processingOrders[item.id]}
+            storeName={
+              store?.storeName || store?.name || store?.displayName || null
+            }
+            storeMenu={store?.menu}
           />
         )}
         keyExtractor={(item) => item.id}
@@ -253,23 +426,38 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
+    alignItems: "flex-start",
+    marginBottom: 12,
+    gap: 12,
   },
-  itemQuantity: {
-    fontSize: 14,
-    color: "#6B7280",
-    width: 30,
+  itemImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  itemDetails: {
+    flex: 1,
+    gap: 4,
   },
   itemName: {
     fontSize: 14,
     color: "#111827",
-    flex: 1,
+    fontWeight: "600",
+  },
+  itemMeta: {
+    fontSize: 13,
+    color: "#6B7280",
   },
   itemPrice: {
     fontSize: 14,
     fontWeight: "500",
     color: "#111827",
+  },
+  emptyItemsText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 8,
   },
   totalRow: {
     flexDirection: "row",
@@ -317,12 +505,12 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     marginTop: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyStateText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6B7280',
+    color: "#6B7280",
   },
 });
