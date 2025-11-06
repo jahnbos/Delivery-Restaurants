@@ -11,10 +11,12 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
-
+import { useState } from "react";
 import { shadow } from "../../../../src/styles/shadow";
 import { useStore } from "../../../../src/context/storeContext";
 import { db } from "../../../../src/config/firebase";
+import Modal from "react-native-modal";
+
 
 const formatCurrency = (value) => {
   const amount = Number(value);
@@ -90,74 +92,117 @@ const MenuCard = ({ item, isActive, onToggle, onEdit, onDelete }) => (
 );
 
 export default function MenuScreen() {
+  const [modalContent, setModalContent] = useState(null);
   const { store } = useStore();
   const menuItems = store?.menu || [];
 
+  const getFeatureAlertConfig = useCallback((type, context = {}) => {
+    const itemLabel = context.itemName
+      ? `"${context.itemName}"`
+      : "this menu item";
+
+    switch (type) {
+      case "editItem":
+        return {
+          title: "Edit feature coming soon",
+          iconName: "create-outline",
+          iconColor: "#2563EB",
+          iconBackgroundColor: "#EEF2FF",
+          buttonText: "Okay, thanks",
+        };
+      case "deleteItem":
+        return {
+          title: "Remove feature coming soon",
+          iconName: "trash-outline",
+          iconColor: "#EF4444",
+          iconBackgroundColor: "#FEF2F2",
+          buttonText: "Okay, thanks",
+        };
+      case "newItem":
+      default:
+        return {
+          title: "New item coming soon",
+          iconName: "sparkles-outline",
+          iconColor: "#FA4A0C",
+          iconBackgroundColor: "#FFF1EB",
+          buttonText: "Okay, thanks",
+        };
+    }
+  }, []);
+
+  const showFeatureAlert = useCallback(
+    (type, context = {}) => {
+      setModalContent(getFeatureAlertConfig(type, context));
+    },
+    [getFeatureAlertConfig]
+  );
+
+  const closeModal = useCallback(() => setModalContent(null), []);
+
   const toggleItemStatus = useCallback(
-  async (itemId) => {
-    if (!store?.id) {
-      console.log("store.id is missing");
-      return;
-    }
-
-    // ✅ ต้องเป็น string เสมอ
-    const storeRef = doc(db, "info", String(store.id));
-
-    try {
-      // 1. ดึงข้อมูลล่าสุดจาก Firestore
-      const docSnap = await getDoc(storeRef);
-      if (!docSnap.exists()) {
-        console.error("Document does not exist!");
+    async (itemId) => {
+      if (!store?.id) {
+        console.log("store.id is missing");
         return;
       }
 
-      const currentMenu = docSnap.data().menu || [];
-      if (!Array.isArray(currentMenu)) {
-        console.error("Menu data is not an array!");
-        return;
-      }
+      // ✅ ต้องเป็น string เสมอ
+      const storeRef = doc(db, "info", String(store.id));
 
-      // 2. สร้างเมนูใหม่ โดยสลับสถานะ
-      const newMenu = currentMenu.map((item) => {
-        if (item.id === itemId) {
-          return {
-            ...item,
-            status: item.status === "active" ? "paused" : "active",
-          };
+      try {
+        // 1. ดึงข้อมูลล่าสุดจาก Firestore
+        const docSnap = await getDoc(storeRef);
+        if (!docSnap.exists()) {
+          console.error("Document does not exist!");
+          return;
         }
-        return item;
-      });
 
-      // 3. เขียนกลับเข้า Firestore
-      await updateDoc(storeRef, { menu: newMenu });
+        const currentMenu = docSnap.data().menu || [];
+        if (!Array.isArray(currentMenu)) {
+          console.error("Menu data is not an array!");
+          return;
+        }
 
-      console.log("✅ Updated status successfully for item:", itemId);
+        // 2. สร้างเมนูใหม่ โดยสลับสถานะ
+        const newMenu = currentMenu.map((item) => {
+          if (item.id === itemId) {
+            return {
+              ...item,
+              status: item.status === "active" ? "paused" : "active",
+            };
+          }
+          return item;
+        });
 
-      // 4. (แนะนำ) อัปเดต local state เพื่อให้ UI เปลี่ยนทันที
-      store.menu = newMenu; // ถ้า context รองรับ
-    } catch (error) {
-      console.error("❌ Failed to toggle item:", error);
-    }
-  },
-  [store?.id]
-);
+        // 3. เขียนกลับเข้า Firestore
+        await updateDoc(storeRef, { menu: newMenu });
 
+        console.log("✅ Updated status successfully for item:", itemId);
 
-  const noop = useCallback(() => undefined, []);
+        // 4. (แนะนำ) อัปเดต local state เพื่อให้ UI เปลี่ยนทันที
+        store.menu = newMenu; // ถ้า context รองรับ
+      } catch (error) {
+        console.error("❌ Failed to toggle item:", error);
+      }
+    },
+    [store?.id]
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <Text style={styles.brandText}>Menu</Text>
-          <TouchableOpacity style={styles.addButton} activeOpacity={0.85} onPress={noop}>
+          <TouchableOpacity
+            style={styles.addButton}
+            activeOpacity={0.85}
+            onPress={() => showFeatureAlert("newItem")}
+          >
             <Ionicons name="add" size={20} color="#fff" />
             <Text style={styles.addButtonText}>New item</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.headerSubtitle}>
-          Manage dishes, toggle availability, and highlight your best sellers.
-        </Text>
+      
       </View>
 
       <ScrollView
@@ -171,11 +216,55 @@ export default function MenuScreen() {
             item={item}
             isActive={item.status === "active"}
             onToggle={() => toggleItemStatus(item.id)}
-            onEdit={noop}
-            onDelete={noop}
+            onEdit={() =>
+              showFeatureAlert("editItem", { itemName: item.name || "" })
+            }
+            onDelete={() =>
+              showFeatureAlert("deleteItem", { itemName: item.name || "" })
+            }
           />
         ))}
       </ScrollView>
+
+      <Modal
+        isVisible={Boolean(modalContent)}
+        onBackdropPress={closeModal}
+        backdropTransitionOutTiming={0}
+      >
+        {modalContent ? (
+          <View style={styles.modalContent}>
+            <View
+              style={[
+                styles.modalIconBadge,
+                modalContent.iconBackgroundColor
+                  ? { backgroundColor: modalContent.iconBackgroundColor }
+                  : null,
+              ]}
+            >
+              <Ionicons
+                name={modalContent.iconName || "sparkles-outline"}
+                size={32}
+                color={modalContent.iconColor || "#FA4A0C"}
+              />
+            </View>
+            <Text style={styles.modalTitle}>
+              {modalContent.title || "Coming soon"}
+            </Text>
+            {modalContent.message ? (
+              <Text style={styles.modalMessage}>{modalContent.message}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={closeModal}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalButtonText}>
+                {modalContent.buttonText || "Got it"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -189,7 +278,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 20,
-    backgroundColor: "#FA4A0C",
+    backgroundColor: "#ffffffff",
+     borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
   },
   headerTopRow: {
     flexDirection: "row",
@@ -198,7 +289,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   brandText: {
-    color: "#fff",
+    color: "#000000ff",
     fontSize: 26,
     fontWeight: "700",
   },
@@ -207,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderRadius: 999,
-    backgroundColor: "#F97316",
+    backgroundColor: "#FA4A0C",
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
@@ -229,6 +320,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 24,
     gap: 18,
+  },
+  modalContent: {
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 24,
+    gap: 16,
+  },
+  modalIconBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#FFF1EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: "#4B5563",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  modalButton: {
+    marginTop: 4,
+    backgroundColor: "#FA4A0C",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 36,
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   card: {
     borderRadius: 20,

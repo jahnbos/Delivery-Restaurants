@@ -94,7 +94,7 @@ const OrderCard = ({
       >
         <View style={{ flex: 1 }}>
           <Text style={styles.orderId}>
-            Order #{order.orderNumber || order.id}
+            Order {order.orderNumber || order.id}
           </Text>
           <Text style={styles.customerName}>{displayStoreName}</Text>
         </View>
@@ -365,6 +365,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   header: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
     backgroundColor: "#FFFFFF",
     padding: 24,
     borderBottomWidth: 1,

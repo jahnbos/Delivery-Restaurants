@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,18 +11,16 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useStore } from "../../../../src/context/storeContext";
-import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../../../src/config/firebase";
 import { router } from "expo-router";
+import { FlatList } from "react-native";
 
 const fallbackImage = require("../../../../assets/Logo/kfc.jpg");
 
 const formatCurrency = (value) => {
   const amount = Number(value);
-  if (Number.isNaN(amount)) {
-    return "0.00";
-  }
+  if (Number.isNaN(amount)) return "0.00";
   return amount.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -35,16 +33,6 @@ const capitalize = (value) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
-const infoFieldLabels = [
-  { label: "Address", key: "address", icon: "location-outline" },
-  { label: "Contact", key: "person-outline", icon: "person-outline" },
-  { label: "Phone", key: "call-outline", icon: "call-outline" },
-  { label: "Email", key: "mail-outline", icon: "mail-outline" },
-  { label: "Line", key: "send-outline", icon: "send-outline" },
-  { label: "Facebook", key: "logo-facebook", icon: "logo-facebook" },
-  { label: "Website", key: "globe-outline", icon: "globe-outline" },
-];
-
 const STATUS_COLORS = {
   pending: "#F59E0B",
   preparing: "#3B82F6",
@@ -55,7 +43,6 @@ const STATUS_COLORS = {
   refunded: "#7C3AED",
 };
 
-// Mock data for the weekly chart
 const weeklyData = [
   { day: "Mon", orders: 12 },
   { day: "Tue", orders: 19 },
@@ -71,6 +58,7 @@ export default function StoreDetailScreen() {
   const [orders, setOrders] = useState([]);
   const [ordersStatus, setOrdersStatus] = useState("idle");
 
+  // ✅ ดึงข้อมูลจาก Firestore collection "orders" เท่านั้น
   useEffect(() => {
     if (!storeId) {
       setOrders([]);
@@ -79,86 +67,106 @@ export default function StoreDetailScreen() {
     }
 
     setOrdersStatus("loading");
-    const ordersQuery = query(collection(db, "orders"), where("storeId", "==", storeId));
-    
-    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setOrders(ordersData);
-      setOrdersStatus("success");
-    }, (err) => {
-      setOrdersStatus("error");
-    });
+
+    const ordersQuery = query(
+      collection(db, "orders"),
+      where("shopId", "==", String(storeId))
+    );
+
+    const unsubscribe = onSnapshot(
+      ordersQuery,
+      (snapshot) => {
+        const ordersData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setOrders(ordersData);
+        setOrdersStatus("success");
+      },
+      () => setOrdersStatus("error")
+    );
 
     return () => unsubscribe();
   }, [storeId]);
 
-  const recentOrders = useMemo(() => 
-    [...orders]
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-      .slice(0, 5),
+  // ✅ Sort orders by creation date
+  const displayOrders = useMemo(
+    () =>
+      [...orders].sort(
+        (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
+      ),
     [orders]
   );
 
+  // ✅ รวมยอด + จำนวน order ทั้งหมด
   const ordersSummary = useMemo(() => {
     if (!orders.length) {
       return { totalCount: 0, revenue: 0 };
     }
+    const completedOrders = orders.filter(
+      (order) => order.status === "completed"
+    );
     return {
       totalCount: orders.length,
-      revenue: orders.reduce((acc, o) => acc + (o.total || 0), 0),
+      revenue: completedOrders.reduce((acc, o) => acc + (o.total || 0), 0),
     };
   }, [orders]);
-
-  const infoFields = useMemo(() => 
-    infoFieldLabels
-      .map(field => ({ ...field, value: store?.[field.key] }))
-      .filter(field => field.value),
-    [store]
-  );
 
   const imageSource = store?.imageUrl
     ? { uri: store.imageUrl }
     : store?.logo
     ? { uri: store.logo }
     : fallbackImage;
-    
+
   const operatingHours =
     store?.openTime && store?.closeTime
       ? `${store.openTime} - ${store.closeTime}`
       : store?.operatingHours;
 
   if (status === "loading") {
-    return <SafeAreaView style={styles.center}><ActivityIndicator size="large" color="#FA4A0C" /></SafeAreaView>;
+    return (
+      <SafeAreaView style={styles.center}>
+        <ActivityIndicator size="large" color="#FA4A0C" />
+      </SafeAreaView>
+    );
   }
 
   if (status === "error" || !store) {
-    return <SafeAreaView style={styles.center}><Text>Error loading store.</Text></SafeAreaView>;
+    return (
+      <SafeAreaView style={styles.center}>
+        <Text>Error loading store.</Text>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <View style={styles.scroll}>
         {/* 🔶 Header */}
         <View style={[styles.card, styles.headerCard]}>
           <Image source={imageSource} style={styles.logo} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.storeName}>{store.storeName || store.name}</Text>
+            <Text style={styles.storeName}>
+              {store.storeName || store.name}
+            </Text>
             <View style={styles.statusRow}>
               <Ionicons
                 name={store.isOpen ? "ellipse" : "ellipse-outline"}
                 size={12}
-                color={store.isOpen ? "#22c55e" : "#9ca3af"}
+                color={store.isOpen ? "#22c55e" : "#6B7280"}
               />
-              <Text style={[styles.statusText, store.isOpen && styles.openText]}>
-                {store.isOpen ? "เปิดอยู่" : "ปิดแล้ว"}
+              <Text
+                style={[styles.statusText, store.isOpen && styles.openText]}
+              >
+                {store.isOpen = "เปิดอยู่" }
               </Text>
             </View>
-            {operatingHours && 
+            {operatingHours && (
               <View style={styles.statusRow}>
                 <Ionicons name="time-outline" size={12} color="#9ca3af" />
                 <Text style={styles.statusText}>{operatingHours}</Text>
               </View>
-            }
+            )}
           </View>
           <TouchableOpacity style={styles.editButton}>
             <Ionicons name="create-outline" size={18} color="#fff" />
@@ -171,7 +179,9 @@ export default function StoreDetailScreen() {
           <View style={styles.summaryRow}>
             <View style={[styles.summaryBox, shadow.light]}>
               <Text style={styles.summaryLabel}>Orders</Text>
-              <Text style={styles.summaryValue}>{ordersSummary.totalCount}</Text>
+              <Text style={styles.summaryValue}>
+                {ordersSummary.totalCount}
+              </Text>
             </View>
             <View style={[styles.summaryBox, shadow.light]}>
               <Text style={styles.summaryLabel}>Revenue</Text>
@@ -179,68 +189,79 @@ export default function StoreDetailScreen() {
                 {formatCurrency(ordersSummary.revenue)}
               </Text>
             </View>
-            <TouchableOpacity style={[styles.summaryBox, shadow.light]} onPress={() => router.push("/features/store/menuScreen")}>
+            <TouchableOpacity
+              style={[styles.summaryBox, shadow.light]}
+              onPress={() => router.push("/features/store/menuScreen")}
+            >
               <Text style={styles.summaryLabel}>Menu Items</Text>
               <Text style={styles.summaryValue}>{store.menu?.length || 0}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* 📈 Weekly Performance */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Weekly Performance</Text>
-          <View style={[styles.card, { paddingHorizontal: 10 }]}>
-            <View style={styles.chartContainer}>
-              {weeklyData.map((item, index) => (
-                <View key={index} style={styles.barWrapper}>
-                  <View style={[styles.bar, { height: `${item.orders / 20 * 100}%` }]} />
-                  <Text style={styles.barLabel}>{item.day}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
         {/* 🧾 Recent Orders */}
-        <View style={styles.section}>
+        <View style={[styles.section, { flex: 1 }]}>
           <Text style={styles.sectionTitle}>Recent Orders</Text>
-          {ordersStatus === 'loading' ? <ActivityIndicator color="#FA4A0C"/> : 
-           recentOrders.length > 0 ?
+
+          {ordersStatus === "loading" ? (
+            <ActivityIndicator color="#FA4A0C" />
+          ) : displayOrders.length > 0 ? (
             <View style={[styles.infoCard, shadow.light]}>
-              {recentOrders.map(order => (
-                <View key={order.id} style={styles.recentOrderRow}>
-                  <View style={styles.recentOrderLeft}>
-                    <Text style={styles.recentOrderId}>Order #{order.queueNumber || order.id}</Text>
-                    <Text style={styles.recentOrderCustomer}>{order.customerName || 'N/A'}</Text>
+              {/* ✅ FlatList แบบ scroll แยกภายในกล่อง */}
+              <FlatList
+                data={displayOrders}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <View style={styles.recentOrderRow}>
+                    <View style={styles.recentOrderLeft}>
+                      <Text style={styles.recentOrderId}>
+                        Order #{item.orderNumber || item.id}
+                      </Text>
+                      <Text style={styles.recentOrderCustomer}>
+                        {item.customerName || "N/A"}
+                      </Text>
+                    </View>
+                    <View style={styles.recentOrderRight}>
+                      <Text style={styles.recentOrderTotal}>
+                        THB {formatCurrency(item.total)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.recentOrderStatus,
+                          { color: STATUS_COLORS[item.status] || "#6C757D" },
+                        ]}
+                      >
+                        {capitalize(item.status)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.recentOrderRight}>
-                    <Text style={styles.recentOrderTotal}>THB {formatCurrency(order.total)}</Text>
-                    <Text style={[styles.recentOrderStatus, { color: STATUS_COLORS[order.status] || '#6C757D' }]}>{capitalize(order.status)}</Text>
+                )}
+                ListEmptyComponent={() => (
+                  <View style={[styles.emptyBox, shadow.light]}>
+                    <Ionicons
+                      name="document-text-outline"
+                      size={30}
+                      color="#9CA3AF"
+                    />
+                    <Text style={styles.emptyText}>No recent orders</Text>
                   </View>
-                </View>
-              ))}
+                )}
+                contentContainerStyle={{ padding: 16, gap: 18 }}
+              />
             </View>
-            :
+          ) : (
             <View style={[styles.emptyBox, shadow.light]}>
-              <Ionicons name="document-text-outline" size={30} color="#9CA3AF" />
+              <Ionicons
+                name="document-text-outline"
+                size={30}
+                color="#9CA3AF"
+              />
               <Text style={styles.emptyText}>No recent orders</Text>
             </View>
-          }
+          )}
         </View>
-
-        {/* 🏪 Store Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Store Information</Text>
-          <View style={[styles.infoCard, shadow.light]}>
-            {infoFields.map(field => (
-              <View key={field.key} style={styles.infoRow}>
-                <Ionicons name={field.icon} size={18} color="#FA4A0C" />
-                <Text style={styles.infoText}>{field.value}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -256,73 +277,40 @@ const shadow = {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F6F7FB",
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F6F7FB',
-  },
-  scroll: {
-    padding: 16,
-    gap: 18,
-  },
-  card: {
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    padding: 20,
-  },
+  container: { flex: 1, backgroundColor: "#F6F7FB" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  scroll: { flex: 1, padding: 16, gap: 18 },
+  card: { borderRadius: 20, backgroundColor: "#fff", padding: 20 },
   headerCard: {
     ...shadow.light,
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
   },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 50,
-  },
-  storeName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-  },
+  logo: { width: 64, height: 64, borderRadius: 50 },
+  storeName: { fontSize: 20, fontWeight: "700", color: "#111827" },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 4,
   },
-  statusText: {
-    fontSize: 13,
-    color: "#6B7280",
-  },
-  openText: {
-    color: "#22C55E",
-  },
+  statusText: { fontSize: 13, color: "#6B7280" },
+  openText: { color: "#22C55E" },
   editButton: {
     backgroundColor: "#FA4A0C",
     padding: 10,
     borderRadius: 999,
-    marginLeft: 'auto',
+    marginLeft: "auto",
   },
-  section: {
-    marginTop: 4,
-  },
+  section: { marginTop: 4 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 10,
     color: "#111827",
   },
-  summaryRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  summaryRow: { flexDirection: "row", gap: 12 },
   summaryBox: {
     flex: 1,
     borderRadius: 16,
@@ -330,15 +318,8 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: "center",
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  summaryValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginTop: 6,
-  },
+  summaryLabel: { fontSize: 14, color: "#6B7280" },
+  summaryValue: { fontSize: 22, fontWeight: "700", marginTop: 6 },
   emptyBox: {
     backgroundColor: "#fff",
     borderRadius: 16,
@@ -347,78 +328,28 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     gap: 10,
   },
-  emptyText: {
-    color: "#9CA3AF",
-    fontSize: 14,
-  },
-  infoCard: {
-    borderRadius: 16,
-    backgroundColor: "#fff",
-    padding: 10,
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-  },
-  infoText: {
-    fontSize: 15,
-    color: "#374151",
-    flexShrink: 1,
-  },
+  emptyText: { color: "#9CA3AF", fontSize: 14 },
+  infoCard: { flex: 1, borderRadius: 16, backgroundColor: "#fff", padding: 10 },
   recentOrderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
-  recentOrderLeft: {
-    flex: 1,
-  },
-  recentOrderRight: {
-    alignItems: 'flex-end',
-  },
-  recentOrderId: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  recentOrderCustomer: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  recentOrderTotal: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  recentOrderStatus: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 2,
-  },
+  recentOrderLeft: { flex: 1 },
+  recentOrderRight: { alignItems: "flex-end" },
+  recentOrderId: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  recentOrderCustomer: { fontSize: 14, color: "#6B7280", marginTop: 2 },
+  recentOrderTotal: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  recentOrderStatus: { fontSize: 14, fontWeight: "600", marginTop: 2 },
   chartContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     height: 150,
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    alignItems: "flex-end",
+    justifyContent: "space-between",
   },
-  barWrapper: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  bar: {
-    width: 12,
-    backgroundColor: '#FA4A0C',
-    borderRadius: 6,
-  },
-  barLabel: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#6B7280',
-  },
+  barWrapper: { alignItems: "center", flex: 1 },
+  bar: { width: 12, backgroundColor: "#FA4A0C", borderRadius: 6 },
+  barLabel: { marginTop: 4, fontSize: 12, color: "#6B7280" },
 });
